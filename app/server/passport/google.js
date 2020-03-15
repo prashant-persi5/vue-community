@@ -1,21 +1,13 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const users = require('../queries/users');
-
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((id, done) => {
-  done(null, id);
-});
+const { setAdminIdNotExists } = require('../auth/utils');
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: "/auth/google/callback"
   }, async (accessToken, refreshToken, profile, cb) => {
-    console.log(profile);
     const email = profile.emails[0].value;
     const googleUser = {
       display_name: profile.displayName,
@@ -24,18 +16,24 @@ passport.use(new GoogleStrategy({
       image_url: profile.photos[0].value,
       role_id: 1,
     };
-    let user = await users.findByEmail(email);
-
-    console.log(googleUser);
-
-    if(user) {
-      //update the user
-      googleUser.role_id = user.role_id;
-      user = await users.update(user.id, googleUser);
-    } else {
-      //insert the user
-      user = await users.insert(googleUser);
-    }
-    return cb(null, user);
+    
+    try {
+      let user = await users.findByEmail(email);
+      if(user) {
+        //update the user
+        googleUser.role_id = user.role_id;
+        user = await users.update(user.id, googleUser);
+      } else {
+        //insert the user
+        const admins = await users.findAdmins();
+        if (admins.length === 0) {
+          googleUser.role_id = 3;
+        }
+        user = await users.insert(googleUser);
+      }
+      return cb(null, user);
+    } catch(error) {
+      return cb(error);
+    } 
   }
 ));

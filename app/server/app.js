@@ -2,9 +2,10 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const passport = require('passport');
-const {notFound, errorHandler} = require('./middlewares');
+const {checkAuthHeaderSetUser, checkUnAuth, notFound, errorHandler} = require('./middlewares');
 require('dotenv').config();
 const auth = require('./auth');
+const api = require('./api');
 
 var app = express();
 
@@ -14,6 +15,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(passport.initialize());
 
+app.use(checkAuthHeaderSetUser);
+
 //Routes go here...
 app.get('/', (req, res) => {
   res.json({
@@ -22,6 +25,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/auth', auth);
+app.use('/api/v1/', api);
 
 app.use(notFound);
 app.use(errorHandler);
